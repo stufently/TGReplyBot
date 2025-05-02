@@ -1,0 +1,13 @@
+services:
+  autosender:
+    build: .
+    container_name: autosender
+    volumes:
+      # Монтируем директории с данными
+      - ./app:/app
+      - ./tdatas:/app/tdatas
+      - ./sessions:/app/sessions
+      - ./.env:/app/.env
+    env_file:
+      - .env  # Монтируем .env файл с переменными окружения
+    restart: unless-stopped
