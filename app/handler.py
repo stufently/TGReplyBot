@@ -86,13 +86,10 @@ class MyTelegramClient:
         telegram_session_str = TELEGRAM_SESSION
 
 
-        api_id = 2040
-        api_hash = "b1847a8b5d7e0345a9c3b5facc3ba5e5"
-
         if telegram_session_str:
             logger.info("Пробуем авторизоваться через TELEGRAM_SESSION...")
             try:
-                self.client = TelegramClient(StringSession(telegram_session_str), api_id, api_hash)
+                self.client = TelegramClient(StringSession(TELEGRAM_SESSION))
                 await self.client.connect()
                 if not await self.client.is_user_authorized():
                     raise Exception("Сессия TELEGRAM_SESSION не авторизована")
