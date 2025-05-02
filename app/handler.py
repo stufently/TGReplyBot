@@ -12,6 +12,9 @@ from opentele.td import TDesktop
 from opentele.api import API, UseCurrentSession
 from dotenv import set_key, load_dotenv, dotenv_values
 
+import subprocess
+import sys
+
 from opentele.exception import TFileNotFound
 
 # Загрузка параметров из переменных окружения
@@ -82,17 +85,10 @@ class MyTelegramClient:
         self.me = None
 
     async def authorize(self):
-
-        telegram_session_str = TELEGRAM_SESSION
-
-
-        api_id = 2040
-        api_hash = "b1847a8b5d7e0345a9c3b5facc3ba5e5"
-
-        if telegram_session_str:
+        if TELEGRAM_SESSION:
             logger.info("Пробуем авторизоваться через TELEGRAM_SESSION...")
             try:
-                self.client = TelegramClient(StringSession(telegram_session_str), api_id, api_hash)
+                self.client = TelegramClient(StringSession(TELEGRAM_SESSION))
                 await self.client.connect()
                 if not await self.client.is_user_authorized():
                     raise Exception("Сессия TELEGRAM_SESSION не авторизована")
@@ -101,48 +97,8 @@ class MyTelegramClient:
                 return self
             except Exception as e:
                 logger.warning("Сессия TELEGRAM_SESSION не сработала: %s", e)
+        return False
 
-        tdata_path = "tdatas/tdata/"
-        if not os.path.exists(tdata_path):
-            logger.error("Путь tdata не найден: %s", tdata_path)
-            return False
-
-        try:
-            logger.info("Чтение tdata из %s", tdata_path)
-            tdesk = TDesktop(tdata_path)
-            if not tdesk.accounts:
-                logger.error("Аккаунты не найдены в tdata")
-                return False
-        except TFileNotFound as e:
-            logger.error("TFileNotFound: %s", e)
-            return False
-
-#       Прокси я вырубил, доступов к нему все равно нет ((
-        proxy_suffix = "no_proxy"
-        session_hash = hashlib.md5(proxy_suffix.encode()).hexdigest()
-        session_file = f"sessions/{self.tdata_name}_{session_hash}.session"
-
-        try:
-            logger.info("Создание клиента из tdata: %s", session_file)
-            self.client = await tdesk.ToTelethon(
-                session_file, UseCurrentSession,
-                api=API.TelegramIOS.Generate(),
-                connection_retries=0, retry_delay=1,
-                auto_reconnect=True, request_retries=0
-            )
-            await self.client.connect()
-            self.me = await self.client.get_me()
-
-            # Сохраняем строку-сессию в .env
-            string_session = StringSession.save(self.client.session)
-            set_key(".env", "TELEGRAM_SESSION", string_session)
-
-            logger.info("Авторизован из tdata как %s", self.me.id)
-            return self
-
-        except Exception as e:
-            logger.error("Ошибка авторизации через tdata: %s", e)
-            return False
 
 # GPT-интеграция с кэшированием потоков
 threads_cache = {}
@@ -325,7 +281,6 @@ async def process_dialogue(dialog, client, processed):
 #                 parse_mode="html"
 #             )
 #             logger.info("Переслана информация о пользователе в группу %s: %s", GROUP_CHAT_ID, profile_info)
-
             # --- Блок пересылки сообщений в групповом чате ---
 #             forward_time_delta = timedelta(seconds=CHATGPT_WAIT_LIMIT * (MESSAGES_LIMIT + 1))
 #             cutoff_time = datetime.now(timezone.utc) - forward_time_delta
@@ -361,6 +316,8 @@ async def main():
     if not await client.authorize():
         logger.error("Ошибка авторизации")
         return
+
+
     processed = set()
     while True:
         try:
